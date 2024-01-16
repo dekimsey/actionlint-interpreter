@@ -173,14 +173,14 @@ func Evaluate(n actionlint.ExprNode, context ContextData) (*EvaluationResult, er
 		}
 
 	case *actionlint.LogicalOpNode:
-		_, err := Evaluate(tn.Left, context)
-		if err != nil {
-			return nil, err
-		}
-		_, err = Evaluate(tn.Right, context)
-		if err != nil {
-			return nil, err
-		}
+		// _, err := Evaluate(tn.Left, context)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// _, err = Evaluate(tn.Right, context)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
 		switch tn.Kind {
 		case actionlint.LogicalOpNodeKindAnd:
@@ -188,7 +188,10 @@ func Evaluate(n actionlint.ExprNode, context ContextData) (*EvaluationResult, er
 			if err != nil {
 				return nil, err
 			}
-
+			// short-circuit
+			if !left.Truthy() {
+				return &EvaluationResult{false, &actionlint.BoolType{}}, nil
+			}
 			right, err := Evaluate(tn.Right, context)
 			if err != nil {
 				return nil, err
@@ -219,7 +222,7 @@ func Evaluate(n actionlint.ExprNode, context ContextData) (*EvaluationResult, er
 	panic("unknown node")
 }
 
-func fcall(name string, args []*EvaluationResult) (*EvaluationResult, error) {
+func fcall(name string, args []*EvaluationResult) (res *EvaluationResult, err error) {
 	// Expression function names are case-insensitive.
 	funcDef, ok := functions[strings.ToLower(name)]
 	if !ok {
@@ -235,6 +238,19 @@ func fcall(name string, args []*EvaluationResult) (*EvaluationResult, error) {
 			return nil, errors.New(fmt.Sprintf("invalid number of arguments. expected at least %d, got %d", funcDef.argsCount, len(args)))
 		}
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			res = nil
+			switch x := r.(type) {
+			case string:
+				err = errors.New(x)
+			case error:
+				err = x
+			default:
+				err = fmt.Errorf("unexpected panic from %s: %v", name, x)
+			}
+		}
+	}()
 
 	return funcDef.call(args...), nil
 }

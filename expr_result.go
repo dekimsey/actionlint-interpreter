@@ -62,6 +62,19 @@ func (ev *EvaluationResult) CoerceString() string {
 	}
 }
 
+func (ev *EvaluationResult) CoerceSlice() []*EvaluationResult {
+	switch ev.Type.(type) {
+	case *actionlint.ArrayType:
+		ar := make([]*EvaluationResult, len(ev.Value.([]any)))
+		for i, v := range ev.Value.([]any) {
+			ar[i] = &EvaluationResult{v, getExprType(v)}
+		}
+		return ar
+	default:
+		return nil
+	}
+}
+
 func (ev *EvaluationResult) Falsy() bool {
 	switch ev.Type.(type) {
 	case *actionlint.NullType:
